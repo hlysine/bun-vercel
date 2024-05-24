@@ -4,7 +4,6 @@
     "module": "ESNext",
     "target": "ESNext",
     "moduleResolution": "node",
-    "types": ["bun-types"],
     "esModuleInterop": true,
     "allowJs": true,
     "strict": true

@@ -1,7 +1,30 @@
 import { exists, mkdir, unlink } from "node:fs/promises"
+import { parseArgs } from "util"
+import { getTransformedRoutes } from "@vercel/routing-utils"
+import { $ } from "bun"
 
 // Ex. ./src/main.ts
-const mainModulePath = process.argv[2]
+const args = Bun.argv.slice(2)
+const { values: options, positionals } = parseArgs({
+  args,
+  options: {
+    funcPath: {
+      type: "string",
+      multiple: false,
+      short: "f",
+      default: "api",
+    },
+  },
+  strict: true,
+  allowPositionals: true,
+})
+options.funcPath ??= "api"
+
+if (positionals.length === 0) {
+  throw new Error("missing main module path")
+}
+
+const mainModulePath = positionals[0]
 
 // Ensure file exists
 if ((await exists(mainModulePath)) !== true) {
@@ -9,7 +32,7 @@ if ((await exists(mainModulePath)) !== true) {
 }
 
 // Get current architecture for build
-const arch = process.arch === 'arm64' ? 'arm64' : 'x86_64'
+const arch = process.arch === "arm64" ? "arm64" : "x86_64"
 
 // Bootstrap source should be in same directory as main
 const bootstrapSourcePath = mainModulePath.replace(
@@ -32,13 +55,13 @@ await Bun.write(
 )
 
 // Create output directory
-await mkdir("./.vercel/output/functions/App.func", {
+await mkdir(`./.vercel/output/functions/${options.funcPath}.func`, {
   recursive: true,
 })
 
 // Create function config file
 await Bun.write(
-  "./.vercel/output/functions/App.func/.vc-config.json",
+  `./.vercel/output/functions/${options.funcPath}.func/.vc-config.json`,
   JSON.stringify(
     {
       architecture: arch,
@@ -54,6 +77,31 @@ await Bun.write(
 )
 
 // Create routing config file
+const configFile = Bun.file("vercel.json")
+let routes
+let vercelConfig
+if (await configFile.exists()) {
+  vercelConfig = await configFile.json()
+  ;({ routes } = getTransformedRoutes(vercelConfig))
+} else {
+  routes = [
+    {
+      headers: {
+        Location: "/$1",
+      },
+      src: "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$",
+      status: 308,
+    },
+    {
+      handle: "filesystem",
+    },
+    {
+      check: true,
+      dest: options.funcPath,
+      src: "^.*$",
+    },
+  ]
+}
 await Bun.write(
   "./.vercel/output/config.json",
   JSON.stringify(
@@ -62,29 +110,18 @@ await Bun.write(
         version: Bun.version,
       },
       overrides: {},
-      routes: [
-        {
-          headers: {
-            Location: "/$1",
-          },
-          src: "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$",
-          status: 308,
-        },
-        {
-          handle: "filesystem",
-        },
-        {
-          check: true,
-          dest: "App",
-          src: "^.*$",
-        },
-      ],
+      routes,
       version: 3,
     },
     null,
     2,
   ),
 )
+
+// Copy static files to output directory
+if (vercelConfig?.outputDirectory) {
+  await $`cp -r ${vercelConfig.outputDirectory} ./.vercel/output/static`
+}
 
 // Compile to a single bun executable
 if (await exists("/etc/system-release")) {
@@ -96,7 +133,7 @@ if (await exists("/etc/system-release")) {
       "--compile",
       "--minify",
       "--outfile",
-      ".vercel/output/functions/App.func/bootstrap",
+      `.vercel/output/functions/${options.funcPath}.func/bootstrap`,
     ],
     stdout: "pipe",
   })
@@ -115,7 +152,7 @@ if (await exists("/etc/system-release")) {
       "oven/bun",
       "bash",
       "-cl",
-      `bun build ${bootstrapSourcePath} --compile --minify --outfile .vercel/output/functions/App.func/bootstrap`,
+      `bun build ${bootstrapSourcePath} --compile --minify --outfile .vercel/output/functions/${options.funcPath}.func/bootstrap`,
     ],
     stdout: "pipe",
   })
