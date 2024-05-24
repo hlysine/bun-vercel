@@ -125,37 +125,11 @@ if (vercelConfig?.outputDirectory) {
 
 // Compile to a single bun executable
 if (await exists("/etc/system-release")) {
-  await Bun.spawnSync({
-    cmd: [
-      "bun",
-      "build",
-      bootstrapSourcePath,
-      "--compile",
-      "--minify",
-      "--outfile",
-      `.vercel/output/functions/${options.funcPath}.func/bootstrap`,
-    ],
-    stdout: "pipe",
-  })
+  await $`bun build ${bootstrapSourcePath} --compile --minify --outfile .vercel/output/functions/${options.funcPath}.func/bootstrap`
 } else {
-  await Bun.spawnSync({
-    cmd: [
-      "docker",
-      "run",
-      "--platform",
-      `linux/${arch}`,
-      "--rm",
-      "-v",
-      `${process.cwd()}:/app`,
-      "-w",
-      "/app",
-      "oven/bun",
-      "bash",
-      "-cl",
-      `bun build ${bootstrapSourcePath} --compile --minify --outfile .vercel/output/functions/${options.funcPath}.func/bootstrap`,
-    ],
-    stdout: "pipe",
-  })
+  await $`docker run --platform linux/${arch} --rm -v ${process.cwd()}:/app -w /app oven/bun bash -cl 'bun build ${bootstrapSourcePath} --compile --minify --outfile .vercel/output/functions/${
+    options.funcPath
+  }.func/bootstrap'`
 }
 
 // Cleanup bootstrap file
