@@ -41,7 +41,9 @@ const bootstrapSourcePath = mainModulePath.replace(
 )
 
 // Read in bootstrap source
-const bootstrapSource = await Bun.file("node_modules/bun-vercel/bootstrap.ts")
+const bootstrapSource = await Bun.file(
+  "node_modules/@hlysine/bun-vercel/bootstrap.ts",
+)
   .text()
   .catch(() => Bun.file("bootstrap.ts").text())
 

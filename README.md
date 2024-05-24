@@ -36,7 +36,7 @@ There are two ways to deploy your project to Vercel:
 ```json
 {
   "devDependencies": {
-    "bun-vercel": "^1.0.0-alpha.4",
+    "@hlysine/bun-vercel": "^1.0.0-alpha.6",
   }
 }
 ```
